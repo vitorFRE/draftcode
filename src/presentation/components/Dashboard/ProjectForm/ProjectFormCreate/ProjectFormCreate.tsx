@@ -4,20 +4,19 @@ import React from 'react'
 
 import { z } from 'zod'
 import { useForm } from 'react-hook-form'
+import { Loading } from '@components/Loading'
 import { Button } from '@components/ui/button'
-import { ReloadIcon } from '@radix-ui/react-icons'
 import { useToast } from '@components/ui/use-toast'
 import { ProjectSchemaCreate } from '@/validations'
 import { zodResolver } from '@hookform/resolvers/zod'
+import { useCreateChallenge } from '@hooks/challenges'
 import { FormInput, FormTextarea } from '@components/Form'
 
 type ProjectData = z.infer<typeof ProjectSchemaCreate>
 
-const BACKEND_UPLOAD_URL = process.env.NEXT_PUBLIC_BACKEND_UPLOAD_URL
-
 export const ProjectFormCreate: React.FC = () => {
 	const { toast } = useToast()
-	const [loading, setLoading] = React.useState(false)
+	const { createChallenge, loading } = useCreateChallenge<ProjectData>()
 
 	const {
 		register,
@@ -32,40 +31,16 @@ export const ProjectFormCreate: React.FC = () => {
 	const image = watch('image')
 
 	const onSubmit = async (data: ProjectData) => {
-		const formData = new FormData()
-
-		formData.append('image', data.image[0])
-
 		try {
-			setLoading(true)
-			const responseImage = await fetch(`${BACKEND_UPLOAD_URL}/image-upload`, {
-				method: 'POST',
-				body: formData
-			})
-			const imageJson = (await responseImage.json()) as { url: string; public_id: string }
-
-			const project = {
-				...data,
-				image: imageJson.url,
-				image_id: imageJson.public_id
-			}
-
-			const responseProject = await fetch('/api/project', {
-				method: 'POST',
-				body: JSON.stringify(project)
-			})
-
-			await responseProject.json()
+			await createChallenge(data)
 
 			toast({
 				title: 'Projeto criado com sucesso',
 				description: 'Seu projeto foi criado com sucesso'
 			})
 
-			setLoading(false)
 			reset()
 		} catch (error) {
-			setLoading(false)
 			toast({
 				variant: 'destructive',
 				title: 'Erro ao criar projeto',
@@ -87,18 +62,10 @@ export const ProjectFormCreate: React.FC = () => {
 	return (
 		<>
 			{loading && (
-				<div className='fixed inset-0 z-50 flex items-center justify-center'>
-					<div className='absolute inset-0 bg-background opacity-80' />
-					<div className='relative'>
-						<div className='rounded-lg border border-border bg-[#1F1F1F] p-10 text-foreground'>
-							<h1 className='text-2xl font-bold'>
-								Criando Projeto
-								<ReloadIcon className='ml-2 inline-block h-6 w-6 animate-spin' />
-							</h1>
-							<p className='mt-5'>Aguarde enquanto seu projeto é criado.</p>
-						</div>
-					</div>
-				</div>
+				<Loading
+					title='Criando Projeto'
+					subtitle='Aguarde enquanto seu projeto é criado.'
+				/>
 			)}
 			<form onSubmit={handleSubmit(onSubmit)} className='container'>
 				<div className='mb-10 gap-10 md:flex'>

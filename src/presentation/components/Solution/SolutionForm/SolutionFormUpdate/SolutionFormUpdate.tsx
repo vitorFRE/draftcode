@@ -6,15 +6,14 @@ import { z } from 'zod'
 import { useForm } from 'react-hook-form'
 import { useRouter } from 'next/navigation'
 import { FormInput } from '@components/Form'
+import { Loading } from '@components/Loading'
 import { Button } from '@components/ui/button'
-import { ReloadIcon } from '@radix-ui/react-icons'
 import { useToast } from '@components/ui/use-toast'
 import { SolutionSchemaUpdate } from '@/validations'
+import { useUpdateSolution } from '@hooks/solutions'
 import { zodResolver } from '@hookform/resolvers/zod'
 
 type SolutionData = z.infer<typeof SolutionSchemaUpdate>
-
-const BACKEND_UPLOAD_URL = process.env.NEXT_PUBLIC_BACKEND_UPLOAD_URL
 
 interface SolutionFormUpdateProps {
 	solution: Solution
@@ -23,7 +22,7 @@ interface SolutionFormUpdateProps {
 export const SolutionFormUpdate: React.FC<SolutionFormUpdateProps> = (props) => {
 	const router = useRouter()
 	const { toast } = useToast()
-	const [loading, setLoading] = React.useState(false)
+	const { loading, updateSolution } = useUpdateSolution<SolutionData>(props.solution)
 
 	const {
 		register,
@@ -35,60 +34,17 @@ export const SolutionFormUpdate: React.FC<SolutionFormUpdateProps> = (props) => 
 	})
 
 	const onSubmit = async (data: SolutionData) => {
-		const formData = new FormData()
-
-		if (data.image[0]) {
-			formData.append('image', data.image[0])
-		}
-
 		try {
-			setLoading(true)
-			const responseImage = formData.get('image')
-				? await fetch(`${BACKEND_UPLOAD_URL}/image-upload`, {
-						method: 'POST',
-						body: formData
-				  })
-				: null
-
-			const imageJson = (await responseImage?.json()) as {
-				url: string
-				public_id: string
-			}
-
-			const solution = {
-				...data,
-				image: imageJson?.url ?? props.solution.image,
-				image_id: imageJson?.public_id ?? props.solution.image_id
-			}
-
-			if (solution.image_id !== props.solution.image_id) {
-				await fetch(`${BACKEND_UPLOAD_URL}/image-upload/delete`, {
-					method: 'DELETE',
-					headers: {
-						Accept: 'application/json',
-						'Content-Type': 'application/json'
-					},
-					body: JSON.stringify({ public_id: props.solution.image_id })
-				})
-			}
-
-			const response = await fetch(`/api/solutions/${props.solution.id}`, {
-				method: 'PUT',
-				body: JSON.stringify(solution)
-			})
-
-			await response.json()
+			await updateSolution(data)
 
 			toast({
 				title: 'Projeto atualizado com sucesso',
 				description: 'Seu projeto foi atua com sucesso'
 			})
 
-			setLoading(false)
 			router.refresh()
 			router.push('/solutions')
 		} catch (error) {
-			setLoading(false)
 			toast({
 				variant: 'destructive',
 				title: 'Erro ao atualizar projeto',
@@ -113,18 +69,10 @@ export const SolutionFormUpdate: React.FC<SolutionFormUpdateProps> = (props) => 
 	return (
 		<>
 			{loading && (
-				<div className='fixed inset-0 z-50 flex items-center justify-center'>
-					<div className='absolute inset-0 bg-background opacity-80' />
-					<div className='relative'>
-						<div className='rounded-lg border border-border bg-[#1F1F1F] p-10 text-foreground'>
-							<h1 className='text-2xl font-bold'>
-								Atualizando Projeto
-								<ReloadIcon className='ml-2 inline-block h-6 w-6 animate-spin' />
-							</h1>
-							<p className='mt-5'>Aguarde enquanto seu projeto é atualizado.</p>
-						</div>
-					</div>
-				</div>
+				<Loading
+					title='Atualizando Projeto'
+					subtitle='Aguarde enquanto seu projeto é atualizado.'
+				/>
 			)}
 			<section className='container'>
 				<form onSubmit={handleSubmit(onSubmit)} className='flex flex-col gap-5'>

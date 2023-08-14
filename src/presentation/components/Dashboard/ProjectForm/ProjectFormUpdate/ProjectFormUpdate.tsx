@@ -5,21 +5,20 @@ import React from 'react'
 import { z } from 'zod'
 import { useForm } from 'react-hook-form'
 import { useRouter } from 'next/navigation'
+import { Loading } from '@components/Loading'
 import { Button } from '@components/ui/button'
-import { ReloadIcon } from '@radix-ui/react-icons'
 import { ProjectSchemaUpdate } from '@/validations'
 import { useToast } from '@components/ui/use-toast'
 import { zodResolver } from '@hookform/resolvers/zod'
+import { useUpdateChallenge } from '@hooks/challenges'
 import { FormInput, FormTextarea } from '@components/Form'
 
 type ProjectData = z.infer<typeof ProjectSchemaUpdate>
 
-const BACKEND_UPLOAD_URL = process.env.NEXT_PUBLIC_BACKEND_UPLOAD_URL
-
 export const ProjectFormUpdate: React.FC<Challenge> = (challenge) => {
 	const router = useRouter()
 	const { toast } = useToast()
-	const [loading, setLoading] = React.useState(false)
+	const { loading, updateChallenge } = useUpdateChallenge<ProjectData>(challenge)
 
 	const {
 		register,
@@ -34,60 +33,17 @@ export const ProjectFormUpdate: React.FC<Challenge> = (challenge) => {
 	const image = watch('image')
 
 	const onSubmit = async (data: ProjectData) => {
-		const formData = new FormData()
-
-		if (data.image[0]) {
-			formData.append('image', data.image[0])
-		}
-
 		try {
-			setLoading(true)
-			const responseImage = formData.get('image')
-				? await fetch(`${BACKEND_UPLOAD_URL}/image-upload`, {
-						method: 'POST',
-						body: formData
-				  })
-				: null
-
-			const imageJson = (await responseImage?.json()) as {
-				url: string
-				public_id: string
-			}
-
-			const project = {
-				...data,
-				image: imageJson?.url ?? challenge.image,
-				image_id: imageJson?.public_id ?? challenge.image_id
-			}
-
-			if (project.image_id !== challenge.image_id) {
-				await fetch(`${BACKEND_UPLOAD_URL}/image-upload/delete`, {
-					method: 'DELETE',
-					headers: {
-						Accept: 'application/json',
-						'Content-Type': 'application/json'
-					},
-					body: JSON.stringify({ public_id: challenge.image_id })
-				})
-			}
-
-			const responseProject = await fetch(`/api/project/${challenge.id}`, {
-				method: 'PUT',
-				body: JSON.stringify(project)
-			})
-
-			await responseProject.json()
+			await updateChallenge(data)
 
 			toast({
 				title: 'Projeto atualizado com sucesso',
 				description: 'Seu projeto foi atualizado com sucesso'
 			})
 
-			setLoading(false)
 			reset()
 			router.refresh()
 		} catch (error) {
-			setLoading(false)
 			toast({
 				variant: 'destructive',
 				title: 'Erro ao atualizar projeto',
@@ -110,18 +66,10 @@ export const ProjectFormUpdate: React.FC<Challenge> = (challenge) => {
 	return (
 		<>
 			{loading && (
-				<div className='fixed inset-0 z-50 flex items-center justify-center'>
-					<div className='absolute inset-0 bg-background opacity-80' />
-					<div className='relative'>
-						<div className='rounded-lg border border-border bg-[#1F1F1F] p-10 text-foreground'>
-							<h1 className='text-2xl font-bold'>
-								Atualizando Projeto
-								<ReloadIcon className='ml-2 inline-block h-6 w-6 animate-spin' />
-							</h1>
-							<p className='mt-5'>Aguarde enquanto seu projeto é atualizado.</p>
-						</div>
-					</div>
-				</div>
+				<Loading
+					title='Atualizando Projeto'
+					subtitle='Aguarde enquanto seu projeto é atualizado.'
+				/>
 			)}
 			<form onSubmit={handleSubmit(onSubmit)} className='container'>
 				<div className='mb-10 gap-10 md:flex'>

@@ -84,3 +84,27 @@ interface Solution {
 		social_media: Social_Media[]
 	}
 }
+
+interface BlogPostPreview {
+	id: string
+	slug: string
+	title: string
+	excerpt: string
+	coverImage: {
+		url: string
+	}
+}
+
+interface BlogPost {
+	id: string
+	title: string
+	content: {
+		value: unknown
+		blocks: unknown
+	}
+	coverImage: {
+		url: string
+	}
+}
+
+type MiddlewareFactory = (middleware: NextMiddleware) => NextMiddleware

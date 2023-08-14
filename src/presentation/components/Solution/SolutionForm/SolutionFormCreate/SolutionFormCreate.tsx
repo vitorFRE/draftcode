@@ -6,24 +6,25 @@ import { z } from 'zod'
 import { useForm } from 'react-hook-form'
 import { useRouter } from 'next/navigation'
 import { FormInput } from '@components/Form'
+import { Loading } from '@components/Loading'
 import { Button } from '@components/ui/button'
-import { ReloadIcon } from '@radix-ui/react-icons'
 import { useToast } from '@components/ui/use-toast'
 import { SolutionSchemaCreate } from '@/validations'
+import { useCreateSolution } from '@hooks/solutions'
 import { zodResolver } from '@hookform/resolvers/zod'
 
 type SolutionData = z.infer<typeof SolutionSchemaCreate>
 
-const BACKEND_UPLOAD_URL = process.env.NEXT_PUBLIC_BACKEND_UPLOAD_URL
-
 interface SolutionFormCreateProps {
-	projectId: string
+	challengeId: string
 }
 
-export const SolutionFormCreate: React.FC<SolutionFormCreateProps> = ({ projectId }) => {
+export const SolutionFormCreate: React.FC<SolutionFormCreateProps> = ({
+	challengeId
+}) => {
 	const router = useRouter()
 	const { toast } = useToast()
-	const [loading, setLoading] = React.useState(false)
+	const { createSolution, loading } = useCreateSolution<SolutionData>(challengeId)
 
 	const {
 		register,
@@ -36,42 +37,18 @@ export const SolutionFormCreate: React.FC<SolutionFormCreateProps> = ({ projectI
 	})
 
 	const onSubmit = async (data: SolutionData) => {
-		const formData = new FormData()
-
-		formData.append('image', data.image[0])
-
 		try {
-			setLoading(true)
-			const responseImage = await fetch(`${BACKEND_UPLOAD_URL}/image-upload`, {
-				method: 'POST',
-				body: formData
-			})
-			const imageJson = (await responseImage.json()) as { url: string; public_id: string }
-
-			const solution = {
-				...data,
-				image: imageJson.url,
-				image_id: imageJson.public_id
-			}
-
-			const response = await fetch(`/api/solutions/${projectId}`, {
-				method: 'POST',
-				body: JSON.stringify(solution)
-			})
-
-			await response.json()
+			await createSolution(data)
 
 			toast({
 				title: 'Projeto enviado com sucesso',
 				description: 'Seu projeto foi enviado com sucesso'
 			})
 
-			setLoading(false)
 			reset()
 			router.refresh()
 			router.push('/solutions')
 		} catch (error) {
-			setLoading(false)
 			toast({
 				variant: 'destructive',
 				title: 'Erro ao enviar projeto',
@@ -95,18 +72,10 @@ export const SolutionFormCreate: React.FC<SolutionFormCreateProps> = ({ projectI
 	return (
 		<>
 			{loading && (
-				<div className='fixed inset-0 z-50 flex items-center justify-center'>
-					<div className='absolute inset-0 bg-background opacity-80' />
-					<div className='relative'>
-						<div className='rounded-lg border border-border bg-[#1F1F1F] p-10 text-foreground'>
-							<h1 className='text-2xl font-bold'>
-								Enviando Projeto
-								<ReloadIcon className='ml-2 inline-block h-6 w-6 animate-spin' />
-							</h1>
-							<p className='mt-5'>Aguarde enquanto seu projeto é enviado.</p>
-						</div>
-					</div>
-				</div>
+				<Loading
+					title='Enviando Projeto'
+					subtitle='Aguarde enquanto seu projeto é enviado.'
+				/>
 			)}
 			<section className='container'>
 				<form onSubmit={handleSubmit(onSubmit)} className='flex flex-col gap-5'>
